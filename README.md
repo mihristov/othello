@@ -23,3 +23,10 @@ Players will then continue to move alternately until they get to the end of the 
 Functionality of the game
 =======
 The game will offer single- (against a computer) and multi-player version. The multi-player version will be played by two people on the same computer. Scoreboard will be implemented as well as graphical interface.
+
+TODO for the next milestone
+-------
+1. A list with brief information of the main functionalities that the game will offer.
+2. A couple of unit-tests covering the points in the above list.
+3. Writing the declarations/definition for a couple of functions so the unit-tests work.
+4. Finding a suitable library for the GUI.
