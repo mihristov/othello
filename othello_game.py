@@ -1,66 +1,182 @@
-"""
-TODO:
-1. Is move valid and legal?
-2. Find a square that forms a bracket with square for player in the given direction. Returns None if no such square exists.
-3. Make move. Update the board to reflect the move by the specified player.
-4. Flip pieces in the given direction as a result of the move by player.
-5. Get a list of all legal moves for player and visualize them(optional).
-6. Count points after every move.
-"""
+import random, copy
 class Game:
+    IN_PROGRESS = '<in-progress>'
+    PLAYER_WINS = '<player-wins>'
+    COMPUTER_WINS = '<computer-wins>'
+    TIE = '<tie>'
+    BOARDWIDTH = 8
+    BOARDHEIGHT = 8
+    EMPTYSPACE = 'E'
+    WHITETILE = 'W'
+    BLACKTILE = 'B'
+    HINTTILE = 'H'
 
-    WHITE = 'W'
-    BLACK = 'B'
-    EMPTY = ' '
-    WHITE_POINTS = 0
-    BLACK_POINTS = 0
+    def __init__(self, board = None):
+        self.board = board or self.makeNewBoard()
+        self.playerTile = self.WHITETILE
+        self.computerTile = self.BLACKTILE
 
-    EMPTY_BOARD = [EMPTY] * 64
+    def setPlayerWhite(self):
+        self.playerTile = self.WHITETILE
+        self.computerTile = self.BLACKTILE
+        return [self.WHITETILE, self.BLACKTILE]
 
-    EMPTY_BOARD[27] = WHITE
-    EMPTY_BOARD[28] = BLACK
-    EMPTY_BOARD[35] = BLACK
-    EMPTY_BOARD[36] = WHITE
+    def setPlayerBlack(self):
+        self.playerTile = self.BLACKTILE
+        self.computerTile = self.WHITETILE
+        return [self.BLACKTILE, self.WHITETILE]
 
-    def __init__(self, board=None):
-        self._board = board or self.EMPTY_BOARD[:]
-        self._player = self.WHITE
+    def makeNewBoard(self):
+        board = []
+        for i in range(self.BOARDWIDTH):
+            board.append([self.EMPTYSPACE] * self.BOARDHEIGHT)
+        return board
 
-    def outcome(self):
-        mapping = {
-            self.BLACK: 'B' ,
-            self.WHITE: 'W',
-            self.EMPTY: ' ',
-        }
-        return [mapping[s] for s in self.EMPTY_BOARD]
+    def resetBoard(self):
+        for x in range(self.BOARDWIDTH):
+            for y in range(self.BOARDHEIGHT):
+                self.board[x][y] = self.EMPTYSPACE
 
-    def current_player(self):
-        return self._player
+        self.board[3][3] = self.WHITETILE
+        self.board[3][4] = self.BLACKTILE
+        self.board[4][3] = self.BLACKTILE
+        self.board[4][4] = self.WHITETILE
 
-    def play(self, position):
-        if not self.valid_move(position):
-            raise InvalidMoveError("Whoops!")
-        self._board[position] = self._player
+    def getRandomPlayer(self):
+        return random.choice(['computer', 'player']);
 
-        if self._player == self.WHITE:
-            self._player = self.BLACK
+    def getAllValidMoves(self, board, tile):
+        validMoves = []
+
+        for x in range(self.BOARDWIDTH):
+            for y in range(self.BOARDHEIGHT):
+                if self.isMoveValid(board, tile, x, y) != False:
+                    validMoves.append((x, y))
+        return validMoves
+
+    def isMoveValid(self, board, tile, xstart, ystart):
+        if board[xstart][ystart] != self.EMPTYSPACE or not self.isInRangeOfBoard(xstart, ystart):
+            return False
+
+        board[xstart][ystart] = tile
+
+        if tile == self.WHITETILE:
+            otherTile = self.BLACKTILE
         else:
-            self._player = self.WHITE
+            otherTile = self.WHITETILE
 
-    def at(self, position):
-        return self._board[position]
+        tilesToFlip = []
+        for xdirection, ydirection in [[0, 1], [1, 1], [1, 0], [1, -1], [0, -1], [-1, -1], [-1, 0], [-1, 1]]:
+            x, y = xstart, ystart
+            x += xdirection
+            y += ydirection
+            if self.isInRangeOfBoard(x, y) and board[x][y] == otherTile:
+                x += xdirection
+                y += ydirection
+                if not self.isInRangeOfBoard(x, y):
+                    continue
+                while board[x][y] == otherTile:
+                    x += xdirection
+                    y += ydirection
+                    if not self.isInRangeOfBoard(x, y):
+                        break
+                if not self.isInRangeOfBoard(x, y):
+                    continue
+                if board[x][y] == tile:
+                    while True:
+                        x -= xdirection
+                        y -= ydirection
+                        if x == xstart and y == ystart:
+                            break
+                        tilesToFlip.append([x, y])
 
-    def valid_move(self, position):
+        board[xstart][ystart] = self.EMPTYSPACE
+        if len(tilesToFlip) == 0:
+            return False
+        return tilesToFlip
+
+    def isInRangeOfBoard(self, x, y):
+        return x >= 0 and x < self.BOARDWIDTH and y >= 0 and y < self.BOARDHEIGHT
+
+    def getAllValidMovesOfBoard(self, tile):
+        dupeBoard = copy.deepcopy(self.board)
+
+        for x, y in self.getAllValidMoves(dupeBoard, tile):
+            dupeBoard[x][y] = self.HINTTILE
+        return dupeBoard
+
+    def makeMove(self, board, tile, xstart, ystart):
+        tilesToFlip = self.isMoveValid(board, tile, xstart, ystart)
+
+        if tilesToFlip == False:
+            return False
+
+        board[xstart][ystart] = tile
+
+        for x, y in tilesToFlip:
+            board[x][y] = tile
         return True
 
-    def _player_on(self, indices):
-        board = self._board
-        squares = [board[i] for i in indices]
+    def isOnCorner(self, x, y):
+        return (x == 0 and y == 0) or \
+               (x == self.BOARDWIDTH-1 and y == 0) or \
+               (x == 0 and y == self.BOARDHEIGHT-1) or \
+               (x == self.BOARDWIDTH-1 and y == self.BOARDHEIGHT-1)
 
-        if squares[0] == self.EMPTY:
-            return None
 
-        player = squares[0]
+    def getCompMoveCoords(self, computerTile):
+        possibleMoves = self.getAllValidMoves(self.board, computerTile)
 
-        if all(s == player for s in squares):
-            return player
+        random.shuffle(possibleMoves)
+
+        for x, y in possibleMoves:
+            if self.isOnCorner(x, y):
+                return [x, y]
+
+        bestScore = -1
+        for x, y in possibleMoves:
+            dupeBoard = copy.deepcopy(self.board)
+            self.makeMove(dupeBoard, computerTile, x, y)
+            score = self.getScore(dupeBoard)[computerTile]
+            if score > bestScore:
+                bestMove = [x, y]
+                bestScore = score
+        return bestMove
+
+    def getScore(self, board):
+        xscore = 0
+        oscore = 0
+        for x in range(self.BOARDWIDTH):
+            for y in range(self.BOARDHEIGHT):
+                if self.board[x][y] == self.WHITETILE:
+                    xscore += 1
+                if self.board[x][y] == self.BLACKTILE:
+                    oscore += 1
+        return {self.WHITETILE:xscore, self.BLACKTILE:oscore}
+
+    def getOutcomeWithPoints(self):
+        scores = self.getScore(self.board)
+
+        if scores[self.playerTile] > scores[self.computerTile]:
+            return 'You beat the computer by %s points! Congratulations!' % \
+                   (scores[self.playerTile] - scores[self.computerTile])
+        elif scores[self.playerTile] < scores[self.computerTile]:
+            return 'You lost. The computer beat you by %s points.' % \
+                   (scores[self.computerTile] - scores[self.playerTile])
+        else:
+            return 'The game was a tie!'
+
+    def getOutcomeWithoutPoints(self):
+        scores = self.getScore(self.board)
+
+        for i in range(self.BOARDWIDTH):
+            for j in range(self.BOARDHEIGHT):
+                if self.board[i][j] == self.EMPTYSPACE:
+                    return self.IN_PROGRESS
+
+        if scores[self.playerTile] > scores[self.computerTile]:
+            return self.PLAYER_WINS
+        elif scores[self.playerTile] < scores[self.computerTile]:
+            return self.COMPUTER_WINS
+        else:
+            return self.TIE
